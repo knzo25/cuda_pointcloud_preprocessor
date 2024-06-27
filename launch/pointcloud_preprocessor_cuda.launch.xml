@@ -1,0 +1,11 @@
+<launch>
+  <arg name="input/pointcloud" default="/sensing/lidar/top/pointcloud_raw_ex"/>
+  <arg name="input/twist" default="/sensing/vehicle_velocity_converter/twist_with_covariance"/>
+  <arg name="output/pointcloud" default="/sensing/lidar/top/test"/>
+
+  <node pkg="pointcloud_preprocessor_cuda" exec="pointcloud_preprocessor_cuda_node" name="pointcloud_preprocessor_cuda" output="screen">
+    <remap from="~/input/pointcloud" to="$(var input/pointcloud)"/>
+    <remap from="~/input/twist" to="$(var input/twist)"/>
+    <remap from="~/output/pointcloud" to="$(var output/pointcloud)"/>
+  </node>
+</launch>

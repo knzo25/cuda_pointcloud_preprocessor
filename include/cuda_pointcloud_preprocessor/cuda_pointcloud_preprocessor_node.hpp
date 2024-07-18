@@ -4,6 +4,8 @@
 #include "cuda_pointcloud_preprocessor/cuda_pointcloud_preprocessor.hpp"
 #include "cuda_pointcloud_preprocessor/point_types.hpp"
 
+#include <autoware/universe_utils/ros/debug_publisher.hpp>
+#include <autoware/universe_utils/system/stop_watch.hpp>
 #include <autoware_point_types/types.hpp>
 #include <cuda_blackboard/cuda_adaptation.hpp>
 #include <cuda_blackboard/cuda_blackboard_publisher.hpp>
@@ -88,6 +90,9 @@ private:
   std::unique_ptr<cuda_blackboard::CudaBlackboardSubscriber<cuda_blackboard::CudaPointCloud2>> sub_;
 
   std::unique_ptr<CudaPointcloudPreprocessor> cuda_pointcloud_preprocessor_;
+
+  std::unique_ptr<autoware::universe_utils::StopWatch<std::chrono::milliseconds>> stop_watch_ptr_;
+  std::unique_ptr<autoware::universe_utils::DebugPublisher> debug_publisher_;
 };
 
 }  // namespace cuda_pointcloud_preprocessor

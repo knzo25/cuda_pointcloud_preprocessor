@@ -96,6 +96,16 @@ CudaPointcloudPreprocessorNode::CudaPointcloudPreprocessorNode(
   cuda_pointcloud_preprocessor_->setCropBoxParameters(
     self_crop_box_parameters, mirror_crop_box_parameters);
   cuda_pointcloud_preprocessor_->set3DUndistortion(use_3d_undistortion);
+
+  // initialize debug tool
+  {
+    using autoware::universe_utils::DebugPublisher;
+    using autoware::universe_utils::StopWatch;
+
+    stop_watch_ptr_ = std::make_unique<StopWatch<std::chrono::milliseconds>>();
+    debug_publisher_ = std::make_unique<DebugPublisher>(this, "cuda_pointcloud_preprocessor");
+    stop_watch_ptr_->tic("processing_time");
+  }
 }
 
 bool CudaPointcloudPreprocessorNode::getTransform(
@@ -180,20 +190,20 @@ void CudaPointcloudPreprocessorNode::imuCallback(
 }
 
 void CudaPointcloudPreprocessorNode::pointcloudCallback(
-  const std::shared_ptr<const cuda_blackboard::CudaPointCloud2> input_pointcloud_msg)
+  const std::shared_ptr<const cuda_blackboard::CudaPointCloud2> input_pointcloud_msg_ptr)
 {
   static_assert(
     sizeof(InputPointType) == sizeof(nebula::drivers::NebulaPoint),
     "PointStruct and PointXYZIRADT must have the same size");
 
-  auto start_system = std::chrono::system_clock::now();
+  stop_watch_ptr_->toc("processing_time", true);
 
   // Make sure that the first twist is newer than the first point
   InputPointType first_point;
   cudaMemcpy(
-    &first_point, input_pointcloud_msg->data, sizeof(InputPointType), cudaMemcpyDeviceToHost);
-  double first_point_stamp = input_pointcloud_msg->header.stamp.sec +
-                             input_pointcloud_msg->header.stamp.nanosec * 1e-9 +
+    &first_point, input_pointcloud_msg_ptr->data, sizeof(InputPointType), cudaMemcpyDeviceToHost);
+  double first_point_stamp = input_pointcloud_msg_ptr->header.stamp.sec +
+                             input_pointcloud_msg_ptr->header.stamp.nanosec * 1e-9 +
                              first_point.time_stamp * 1e-9;
 
   while (twist_queue_.size() > 1 &&
@@ -216,28 +226,36 @@ void CudaPointcloudPreprocessorNode::pointcloudCallback(
 
   try {
     transform_msg = tf2_buffer_.lookupTransform(
-      base_frame_, input_pointcloud_msg->header.frame_id, tf2::TimePointZero);
+      base_frame_, input_pointcloud_msg_ptr->header.frame_id, tf2::TimePointZero);
   } catch (const tf2::TransformException & ex) {
     RCLCPP_WARN(get_logger(), "%s", ex.what());
     return;
   }
 
   // RCLCPP_INFO(get_logger(), "Processing pointcloud %s with %d points",
-  // input_pointcloud_msg->header.frame_id.c_str(),
-  // input_pointcloud_msg->height*input_pointcloud_msg->width);
+  // input_pointcloud_msg_ptr->header.frame_id.c_str(),
+  // input_pointcloud_msg_ptr->height*input_pointcloud_msg_ptr->width);
   auto output_pointcloud_ptr = cuda_pointcloud_preprocessor_->process(
-    *input_pointcloud_msg, transform_msg, twist_queue_, angular_velocity_queue_);
+    *input_pointcloud_msg_ptr, transform_msg, twist_queue_, angular_velocity_queue_);
   output_pointcloud_ptr->header.frame_id = base_frame_;
 
   // Publish
   pub_->publish(std::move(output_pointcloud_ptr));
 
+  if (debug_publisher_) {
+    const double processing_time_ms = stop_watch_ptr_->toc("processing_time", true);
+    debug_publisher_->publish<tier4_debug_msgs::msg::Float64Stamped>(
+      "debug/processing_time_ms", processing_time_ms);
+
+    double now_stamp_seconds = rclcpp::Time(this->get_clock()->now()).seconds();
+    double cloud_stamp_seconds = rclcpp::Time(input_pointcloud_msg_ptr->header.stamp).seconds();
+
+    debug_publisher_->publish<tier4_debug_msgs::msg::Float64Stamped>(
+      "debug/latency_ms", 1000.f * (now_stamp_seconds - cloud_stamp_seconds));
+  }
+
   // Preallocate for next iteration
   cuda_pointcloud_preprocessor_->preallocateOutput();
-
-  // /auto end_system = std::chrono::system_clock::now();
-  // RCLCPP_INFO(get_logger(), "System Processing time: %f", 1e-6 *
-  // std::chrono::duration_cast<std::chrono::nanoseconds>(end_system - start_system).count());
 }
 
 }  // namespace cuda_pointcloud_preprocessor

@@ -30,6 +30,7 @@ include_directories(
     include
     SYSTEM
     ${CUDA_INCLUDE_DIRS}
+    ${nebula_common_INCLUDE_DIRS}
 )
 
 list(APPEND CUDA_NVCC_FLAGS "--expt-relaxed-constexpr -diag-suppress 20012")
@@ -47,7 +48,7 @@ target_include_directories(cuda_pointcloud_preprocessor_lib SYSTEM PRIVATE
   ${autoware_point_types_INCLUDE_DIRS}
   ${cuda_blackboard_INCLUDE_DIRS}
   ${geometry_msgs_INCLUDE_DIRS}
-  ${geometry_msgs_INCLUDE_DIRS}
+  ${nebula_common_INCLUDE_DIRS}
   ${rclcpp_INCLUDE_DIRS}
   ${rcl_interfaces_INCLUDE_DIRS}
   ${sensor_msgs_INCLUDE_DIRS}

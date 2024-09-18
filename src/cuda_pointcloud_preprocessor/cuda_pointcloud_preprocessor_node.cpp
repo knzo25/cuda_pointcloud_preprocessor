@@ -35,7 +35,7 @@ CudaPointcloudPreprocessorNode::CudaPointcloudPreprocessorNode(
   tf2_buffer_(this->get_clock()),
   tf2_listener_(tf2_buffer_)
 {
-  std::cout << "CudaPointcloudPreprocessorNode" << std::endl;
+  std::cout << "CudaPointcloudPreprocessorNode" << std::endl << std::flush;
   RCLCPP_WARN(get_logger(), "CudaPointcloudPreprocessorNode: start of constructor");
   using std::placeholders::_1;
 
@@ -106,6 +106,8 @@ CudaPointcloudPreprocessorNode::CudaPointcloudPreprocessorNode(
     debug_publisher_ = std::make_unique<DebugPublisher>(this, "cuda_pointcloud_preprocessor");
     stop_watch_ptr_->tic("processing_time");
   }
+
+  RCLCPP_WARN(get_logger(), "CudaPointcloudPreprocessorNode: end of constructor");
 }
 
 bool CudaPointcloudPreprocessorNode::getTransform(

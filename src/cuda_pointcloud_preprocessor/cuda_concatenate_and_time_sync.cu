@@ -33,7 +33,7 @@ __global__ void synchronizeAndConcatenate(
       transform.m21 * x + transform.m22 * y + transform.m23 * z + transform.translation_y;
     output_points[idx].z =
       transform.m31 * x + transform.m32 * y + transform.m33 * z + transform.translation_z;
-    output_points[idx].intensity = output_points[idx].intensity;
+    output_points[idx].intensity = input_points[idx].intensity;
   }
 }
 

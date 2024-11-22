@@ -1,6 +1,19 @@
+// Copyright 2024 TIER IV, Inc.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
 
-#include "cuda_pointcloud_preprocessor/cuda_pointcloud_preprocessor.hpp"
-#include "cuda_pointcloud_preprocessor/point_types.hpp"
+#include "autoware/cuda_pointcloud_preprocessor/cuda_pointcloud_preprocessor.hpp"
+#include "autoware/cuda_pointcloud_preprocessor/point_types.hpp"
 
 #include <Eigen/Core>
 #include <Eigen/Dense>
@@ -13,7 +26,7 @@
 #include <thrust/reduce.h>
 #include <thrust/scan.h>
 
-namespace cuda_pointcloud_preprocessor
+namespace autoware::cuda_pointcloud_preprocessor
 {
 
 __host__ __device__ Eigen::Matrix3f skewSymmetric(const Eigen::Vector3f & v)
@@ -57,7 +70,7 @@ __host__ __device__ Eigen::Matrix4f transformationMatrixFromVelocity(
   return transformation;
 }
 
-__global__ void transform_points_kernel(
+__global__ void transformPointsKernel(
   const InputPointType * input_points, InputPointType * output_points, int num_points,
   TransformStruct transform)
 {
@@ -75,7 +88,7 @@ __global__ void transform_points_kernel(
   }
 }
 
-__global__ void crop_box_kernel(
+__global__ void cropBoxKernel(
   InputPointType * d_points, uint32_t * output_mask, int num_points, float min_x, float min_y,
   float min_z, float max_x, float max_y, float max_z)
 {
@@ -93,7 +106,7 @@ __global__ void crop_box_kernel(
   }
 }
 
-__global__ void combine_masks_kernel(
+__global__ void combineMasksKernel(
   uint32_t * mask1, uint32_t * mask2, uint32_t * mask3, int num_points, uint32_t * output_mask)
 {
   int idx = blockIdx.x * blockDim.x + threadIdx.x;
@@ -102,7 +115,7 @@ __global__ void combine_masks_kernel(
   }
 }
 
-__global__ void extract_input_point_indices_kernel(
+__global__ void extractInputPointIndicesKernel(
   InputPointType * input_points, uint32_t * masks, uint32_t * indices, int num_points,
   InputPointType * output_points)
 {
@@ -112,7 +125,7 @@ __global__ void extract_input_point_indices_kernel(
   }
 }
 
-__global__ void extract_output_point_indices_kernel(
+__global__ void extractOutputPointIndicesKernel(
   OutputPointType * input_points, uint32_t * masks, uint32_t * indices, int num_points,
   OutputPointType * output_points)
 {
@@ -122,7 +135,7 @@ __global__ void extract_output_point_indices_kernel(
   }
 }
 
-__global__ void extract_input_points_to_output_points_indices_kernel(
+__global__ void extractInputPointsToOutputPoints_indicesKernel(
   InputPointType * input_points, uint32_t * masks, uint32_t * indices, int num_points,
   OutputPointType * output_points)
 {
@@ -139,7 +152,7 @@ __global__ void extract_input_points_to_output_points_indices_kernel(
   }
 }
 
-__global__ void undistort_2d_kernel(
+__global__ void undistort2dKernel(
   InputPointType * input_points, int num_points, TwistStruct2D * twist_structs, int num_twists)
 {
   int idx = blockIdx.x * blockDim.x + threadIdx.x;
@@ -178,7 +191,7 @@ __global__ void undistort_2d_kernel(
   }
 }
 
-__global__ void undistort_3d_kernel(
+__global__ void undistort3dKernel(
   InputPointType * input_points, int num_points, TwistStruct3D * twist_structs, int num_twists)
 {
   int idx = blockIdx.x * blockDim.x + threadIdx.x;
@@ -213,7 +226,7 @@ __global__ void undistort_3d_kernel(
   }
 }
 
-__global__ void ring_outlier_filter_kernel(
+__global__ void ringOutlierFilterKernel(
   const InputPointType * d_points, uint32_t * output_mask, int num_rings, int max_points_per_ring,
   float distance_ratio, float object_length_threshold_squared, int num_points_threshold)
 {
@@ -269,7 +282,7 @@ __global__ void ring_outlier_filter_kernel(
       : 0;
 }
 
-__global__ void transform_point_type_kernel(
+__global__ void transformPointTypeKernel(
   const InputPointType * device_input_points, int num_points, OutputPointType * device_ouput_points)
 {
   int idx = blockIdx.x * blockDim.x + threadIdx.x;
@@ -356,8 +369,7 @@ void CudaPointcloudPreprocessor::set3DUndistortion(bool use_3d_undistortion)
 void CudaPointcloudPreprocessor::preallocateOutput()
 {
   output_pointcloud_ptr_ = std::make_unique<cuda_blackboard::CudaPointCloud2>();
-  cudaMalloc(
-    reinterpret_cast<void **>(&output_pointcloud_ptr_->data),
+  output_pointcloud_ptr_->data = cuda_blackboard::make_unique<std::uint8_t[]>(
     max_rings_ * max_points_per_ring_ * sizeof(OutputPointType));
 }
 
@@ -367,7 +379,7 @@ void CudaPointcloudPreprocessor::setupTwist2DStructs(
   const std::deque<geometry_msgs::msg::Vector3Stamped> & angular_velocity_queue)
 {
   const InputPointType * device_input_points =
-    reinterpret_cast<const InputPointType *>(input_pointcloud_msg.data);
+    reinterpret_cast<const InputPointType *>(input_pointcloud_msg.data.get());
   InputPointType first_point;
   cudaMemcpy(&first_point, &device_input_points[0], sizeof(InputPointType), cudaMemcpyDeviceToHost);
 
@@ -494,6 +506,7 @@ void CudaPointcloudPreprocessor::setupTwist2DStructs(
   << input_pointcloud_msg.header.frame_id << "] \tTwist structs size: " << host_twist_structs.size()
   << std::endl << std::endl;
  */
+
   // Copy to device
   device_twist_2d_structs_ = host_twist_structs;
 }
@@ -504,7 +517,7 @@ void CudaPointcloudPreprocessor::setupTwist3DStructs(
   const std::deque<geometry_msgs::msg::Vector3Stamped> & angular_velocity_queue)
 {
   const InputPointType * device_input_points =
-    reinterpret_cast<const InputPointType *>(input_pointcloud_msg.data);
+    reinterpret_cast<const InputPointType *>(input_pointcloud_msg.data.get());
   InputPointType first_point;
   cudaMemcpy(&first_point, &device_input_points[0], sizeof(InputPointType), cudaMemcpyDeviceToHost);
 
@@ -646,7 +659,7 @@ std::unique_ptr<cuda_blackboard::CudaPointCloud2> CudaPointcloudPreprocessor::pr
 
   // Twist preprocessing
   const InputPointType * device_input_points =
-    reinterpret_cast<const InputPointType *>(input_pointcloud_msg.data);
+    reinterpret_cast<const InputPointType *>(input_pointcloud_msg.data.get());
   // uint64_t pointcloud_stamp_nsec = 1'000'000'000 * input_pointcloud_msg.header.stamp.sec +
   // input_pointcloud_msg.header.stamp.nanosec; std::size_t num_twists = std::min<std::size_t>(20,
   // twist_queue.size()); std::size_t num_twists = std::min<std::size_t>(20, twist_queue.size() +
@@ -673,39 +686,39 @@ std::unique_ptr<cuda_blackboard::CudaPointCloud2> CudaPointcloudPreprocessor::pr
   const int threadsPerBlock = 256;
   const int blocksPerGrid = (num_input_points + threadsPerBlock - 1) / threadsPerBlock;
 
-  transform_points_kernel<<<blocksPerGrid, threadsPerBlock>>>(
+  transformPointsKernel<<<blocksPerGrid, threadsPerBlock>>>(
     device_input_points, device_transformed_points, num_input_points, transform_struct);
 
-  crop_box_kernel<<<blocksPerGrid, threadsPerBlock>>>(
+  cropBoxKernel<<<blocksPerGrid, threadsPerBlock>>>(
     device_transformed_points, device_self_crop_mask, num_input_points,
     self_crop_box_parameters_.min_x, self_crop_box_parameters_.min_y,
     self_crop_box_parameters_.min_z, self_crop_box_parameters_.max_x,
     self_crop_box_parameters_.max_y, self_crop_box_parameters_.max_z);
 
-  crop_box_kernel<<<blocksPerGrid, threadsPerBlock>>>(
+  cropBoxKernel<<<blocksPerGrid, threadsPerBlock>>>(
     device_transformed_points, device_mirror_crop_mask, num_input_points,
     mirror_crop_box_parameters_.min_x, mirror_crop_box_parameters_.min_y,
     mirror_crop_box_parameters_.min_z, mirror_crop_box_parameters_.max_x,
     mirror_crop_box_parameters_.max_y, mirror_crop_box_parameters_.max_z);
 
   if (use_3d_undistortion_ && device_twist_3d_structs_.size() > 0) {
-    undistort_3d_kernel<<<blocksPerGrid, threadsPerBlock>>>(
+    undistort3dKernel<<<blocksPerGrid, threadsPerBlock>>>(
       device_transformed_points, num_input_points, device_twist_3d_structs,
       device_twist_3d_structs_.size());
   } else if (!use_3d_undistortion_ && device_twist_2d_structs_.size() > 0) {
-    undistort_2d_kernel<<<blocksPerGrid, threadsPerBlock>>>(
+    undistort2dKernel<<<blocksPerGrid, threadsPerBlock>>>(
       device_transformed_points, num_input_points, device_twist_2d_structs,
       device_twist_2d_structs_.size());
   }
 
-  ring_outlier_filter_kernel<<<blocksPerGrid, threadsPerBlock>>>(
+  ringOutlierFilterKernel<<<blocksPerGrid, threadsPerBlock>>>(
     device_transformed_points, device_ring_outlier_mask, max_rings_, max_points_per_ring_,
     ring_outlier_parameters_.distance_ratio,
     ring_outlier_parameters_.object_length_threshold *
       ring_outlier_parameters_.object_length_threshold,
     ring_outlier_parameters_.num_points_threshold);
 
-  combine_masks_kernel<<<blocksPerGrid, threadsPerBlock>>>(
+  combineMasksKernel<<<blocksPerGrid, threadsPerBlock>>>(
     device_self_crop_mask, device_mirror_crop_mask, device_ring_outlier_mask, num_input_points,
     device_ring_outlier_mask);
 
@@ -719,9 +732,9 @@ std::unique_ptr<cuda_blackboard::CudaPointCloud2> CudaPointcloudPreprocessor::pr
     cudaMemcpyDeviceToHost);
 
   if (num_output_points > 0) {
-    extract_input_points_to_output_points_indices_kernel<<<blocksPerGrid, threadsPerBlock>>>(
+    extractInputPointsToOutputPoints_indicesKernel<<<blocksPerGrid, threadsPerBlock>>>(
       device_transformed_points, device_ring_outlier_mask, device_indices, num_input_points,
-      reinterpret_cast<OutputPointType *>(output_pointcloud_ptr_->data));
+      reinterpret_cast<OutputPointType *>(output_pointcloud_ptr_->data.get()));
   }
 
   // Copy the transformed points back
@@ -738,4 +751,4 @@ std::unique_ptr<cuda_blackboard::CudaPointCloud2> CudaPointcloudPreprocessor::pr
   return std::move(output_pointcloud_ptr_);
 }
 
-}  // namespace cuda_pointcloud_preprocessor
+}  // namespace autoware::cuda_pointcloud_preprocessor

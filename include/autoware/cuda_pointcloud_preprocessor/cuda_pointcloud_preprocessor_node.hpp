@@ -1,12 +1,26 @@
+// Copyright 2024 TIER IV, Inc.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 #ifndef CUDA_POINTCLOUD_PREPROCESSOR__CUDA_POINTCLOUD_PREPROCESSOR_NODE_HPP_
 #define CUDA_POINTCLOUD_PREPROCESSOR__CUDA_POINTCLOUD_PREPROCESSOR_NODE_HPP_
 
-#include "cuda_pointcloud_preprocessor/cuda_pointcloud_preprocessor.hpp"
-#include "cuda_pointcloud_preprocessor/point_types.hpp"
+#include "autoware/cuda_pointcloud_preprocessor/cuda_pointcloud_preprocessor.hpp"
+#include "autoware/cuda_pointcloud_preprocessor/point_types.hpp"
 
 #include <autoware/universe_utils/ros/debug_publisher.hpp>
 #include <autoware/universe_utils/system/stop_watch.hpp>
-#include <autoware_point_types/types.hpp>
+#include <autoware/point_types/types.hpp>
 #include <cuda_blackboard/cuda_adaptation.hpp>
 #include <cuda_blackboard/cuda_blackboard_publisher.hpp>
 #include <cuda_blackboard/cuda_blackboard_subscriber.hpp>
@@ -32,29 +46,29 @@
     offsetof(structure1, field) == offsetof(structure2, field), \
     "Offset of " #field " in " #structure1 " does not match expected offset.")
 
-namespace cuda_pointcloud_preprocessor
+namespace autoware::cuda_pointcloud_preprocessor
 {
 
-static_assert(sizeof(InputPointType) == sizeof(autoware_point_types::PointXYZIRCAEDT));
-static_assert(sizeof(OutputPointType) == sizeof(autoware_point_types::PointXYZIRC));
+static_assert(sizeof(InputPointType) == sizeof(autoware::point_types::PointXYZIRCAEDT));
+static_assert(sizeof(OutputPointType) == sizeof(autoware::point_types::PointXYZIRC));
 
-CHECK_OFFSET(InputPointType, autoware_point_types::PointXYZIRCAEDT, x);
-CHECK_OFFSET(InputPointType, autoware_point_types::PointXYZIRCAEDT, y);
-CHECK_OFFSET(InputPointType, autoware_point_types::PointXYZIRCAEDT, z);
-CHECK_OFFSET(InputPointType, autoware_point_types::PointXYZIRCAEDT, intensity);
-CHECK_OFFSET(InputPointType, autoware_point_types::PointXYZIRCAEDT, return_type);
-CHECK_OFFSET(InputPointType, autoware_point_types::PointXYZIRCAEDT, channel);
-CHECK_OFFSET(InputPointType, autoware_point_types::PointXYZIRCAEDT, azimuth);
-CHECK_OFFSET(InputPointType, autoware_point_types::PointXYZIRCAEDT, elevation);
-CHECK_OFFSET(InputPointType, autoware_point_types::PointXYZIRCAEDT, distance);
-CHECK_OFFSET(InputPointType, autoware_point_types::PointXYZIRCAEDT, time_stamp);
+CHECK_OFFSET(InputPointType, autoware::point_types::PointXYZIRCAEDT, x);
+CHECK_OFFSET(InputPointType, autoware::point_types::PointXYZIRCAEDT, y);
+CHECK_OFFSET(InputPointType, autoware::point_types::PointXYZIRCAEDT, z);
+CHECK_OFFSET(InputPointType, autoware::point_types::PointXYZIRCAEDT, intensity);
+CHECK_OFFSET(InputPointType, autoware::point_types::PointXYZIRCAEDT, return_type);
+CHECK_OFFSET(InputPointType, autoware::point_types::PointXYZIRCAEDT, channel);
+CHECK_OFFSET(InputPointType, autoware::point_types::PointXYZIRCAEDT, azimuth);
+CHECK_OFFSET(InputPointType, autoware::point_types::PointXYZIRCAEDT, elevation);
+CHECK_OFFSET(InputPointType, autoware::point_types::PointXYZIRCAEDT, distance);
+CHECK_OFFSET(InputPointType, autoware::point_types::PointXYZIRCAEDT, time_stamp);
 
-CHECK_OFFSET(OutputPointType, autoware_point_types::PointXYZIRCAEDT, x);
-CHECK_OFFSET(OutputPointType, autoware_point_types::PointXYZIRCAEDT, y);
-CHECK_OFFSET(OutputPointType, autoware_point_types::PointXYZIRCAEDT, z);
-CHECK_OFFSET(OutputPointType, autoware_point_types::PointXYZIRCAEDT, intensity);
-CHECK_OFFSET(OutputPointType, autoware_point_types::PointXYZIRCAEDT, return_type);
-CHECK_OFFSET(OutputPointType, autoware_point_types::PointXYZIRCAEDT, channel);
+CHECK_OFFSET(OutputPointType, autoware::point_types::PointXYZIRCAEDT, x);
+CHECK_OFFSET(OutputPointType, autoware::point_types::PointXYZIRCAEDT, y);
+CHECK_OFFSET(OutputPointType, autoware::point_types::PointXYZIRCAEDT, z);
+CHECK_OFFSET(OutputPointType, autoware::point_types::PointXYZIRCAEDT, intensity);
+CHECK_OFFSET(OutputPointType, autoware::point_types::PointXYZIRCAEDT, return_type);
+CHECK_OFFSET(OutputPointType, autoware::point_types::PointXYZIRCAEDT, channel);
 
 class CudaPointcloudPreprocessorNode : public rclcpp::Node
 {
@@ -95,6 +109,6 @@ private:
   std::unique_ptr<autoware::universe_utils::DebugPublisher> debug_publisher_;
 };
 
-}  // namespace cuda_pointcloud_preprocessor
+}  // namespace autoware::cuda_pointcloud_preprocessor
 
 #endif  // CUDA_POINTCLOUD_PREPROCESSOR__CUDA_POINTCLOUD_PREPROCESSOR_NODE_HPP_

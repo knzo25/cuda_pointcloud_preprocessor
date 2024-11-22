@@ -37,7 +37,7 @@ list(APPEND CUDA_NVCC_FLAGS "--expt-relaxed-constexpr -diag-suppress 20012")
 
 cuda_add_library(cuda_pointcloud_preprocessor_lib SHARED
   src/cuda_pointcloud_preprocessor/cuda_pointcloud_preprocessor.cu
-  src/cuda_pointcloud_preprocessor/cuda_concatenate_and_time_sync.cu
+  #src/cuda_pointcloud_preprocessor/cuda_concatenate_and_time_sync.cu
 )
 
 target_link_libraries(cuda_pointcloud_preprocessor_lib
@@ -58,7 +58,7 @@ target_include_directories(cuda_pointcloud_preprocessor_lib SYSTEM PRIVATE
 # Targets
 ament_auto_add_library(cuda_pointcloud_preprocessor SHARED
   src/cuda_pointcloud_preprocessor/cuda_pointcloud_preprocessor_node.cpp
-  src/cuda_pointcloud_preprocessor/cuda_concatenate_and_time_sync_node.cpp
+  #src/cuda_pointcloud_preprocessor/cuda_concatenate_and_time_sync_node.cpp
 )
 
 target_link_libraries(cuda_pointcloud_preprocessor
@@ -67,16 +67,16 @@ target_link_libraries(cuda_pointcloud_preprocessor
 )
 
 rclcpp_components_register_node(cuda_pointcloud_preprocessor
-  PLUGIN "cuda_pointcloud_preprocessor::CudaPointcloudPreprocessorNode"
+  PLUGIN "autoware::cuda_pointcloud_preprocessor::CudaPointcloudPreprocessorNode"
   EXECUTABLE cuda_pointcloud_preprocessor_node
 )
 
-rclcpp_components_register_node(cuda_pointcloud_preprocessor
-  PLUGIN "cuda_pointcloud_preprocessor::CudaPointCloudConcatenateAndSyncNode"
-  EXECUTABLE cuda_pointcloud_concatenate_and_sync_node
-)
+#rclcpp_components_register_node(cuda_pointcloud_preprocessor
+#  PLUGIN "cuda_pointcloud_preprocessor::CudaPointCloudConcatenateAndSyncNode"
+#  EXECUTABLE cuda_pointcloud_concatenate_and_sync_node
+#)
 
-install(DIRECTORY launch
+install(DIRECTORY launch config
   DESTINATION share/${PROJECT_NAME}
 )
 

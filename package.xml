@@ -12,7 +12,6 @@
 
   <depend>autoware_point_types</depend>
   <depend>autoware_universe_utils</depend>
-  <!-- <depend>backward_ros</depend> -->
   <depend>cuda_blackboard</depend>
   <depend>fmt</depend>
   <depend>nebula_common</depend>

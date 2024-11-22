@@ -1,23 +1,32 @@
+// Copyright 2024 TIER IV, Inc.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
 
-#include "cuda_pointcloud_preprocessor/cuda_pointcloud_preprocessor_node.hpp"
 
-#include "cuda_pointcloud_preprocessor/point_types.hpp"
+#include "autoware/cuda_pointcloud_preprocessor/cuda_pointcloud_preprocessor_node.hpp"
+#include "autoware/cuda_pointcloud_preprocessor/point_types.hpp"
 
-#include <nebula_common/point_types.hpp>  // needed during development to make sure we use the correct type. This should be removed in the future
+#include <autoware/point_types/types.hpp>
 
 #include <geometry_msgs/msg/transform_stamped.hpp>
-#include <sensor_msgs/point_cloud2_iterator.hpp>
+//#include <sensor_msgs/point_cloud2_iterator.hpp>
 
 #include <pcl/pcl_base.h>
 #include <pcl/point_cloud.h>
 #include <pcl/point_types.h>
-#include <pcl_conversions/pcl_conversions.h>
+//#include <pcl_conversions/pcl_conversions.h>
 
-#ifdef ROS_DISTRO_GALACTIC
-#include <tf2_geometry_msgs/tf2_geometry_msgs.h>
-#else
 #include <tf2_geometry_msgs/tf2_geometry_msgs.hpp>
-#endif
 
 #include <cuda_runtime.h>
 
@@ -25,7 +34,7 @@
 #include <string>
 #include <vector>
 
-namespace cuda_pointcloud_preprocessor
+namespace autoware::cuda_pointcloud_preprocessor
 {
 using sensor_msgs::msg::PointCloud2;
 
@@ -40,38 +49,39 @@ CudaPointcloudPreprocessorNode::CudaPointcloudPreprocessorNode(
   using std::placeholders::_1;
 
   // Parameters
-  base_frame_ = static_cast<std::string>(declare_parameter("base_frame", "base_link"));
+  base_frame_ = declare_parameter<std::string>("base_frame");
 
   RingOutlierFilterParameters ring_outlier_filter_parameters;
   ring_outlier_filter_parameters.distance_ratio =
-    static_cast<float>(declare_parameter("distance_ratio", 1.03));
+    declare_parameter<float>("distance_ratio");
   ring_outlier_filter_parameters.object_length_threshold =
-    static_cast<float>(declare_parameter("object_length_threshold", 0.1));
+    declare_parameter<float>("object_length_threshold");
   ring_outlier_filter_parameters.num_points_threshold =
-    static_cast<int>(declare_parameter("num_points_threshold", 4));
+    declare_parameter<int>("num_points_threshold");
 
   CropBoxParameters self_crop_box_parameters, mirror_crop_box_parameters;
-  self_crop_box_parameters.min_x = static_cast<float>(declare_parameter("self_crop.min_x", -1.0));
-  self_crop_box_parameters.min_y = static_cast<float>(declare_parameter("self_crop.min_y", -1.0));
-  self_crop_box_parameters.min_z = static_cast<float>(declare_parameter("self_crop.min_z", -1.0));
-  self_crop_box_parameters.max_x = static_cast<float>(declare_parameter("self_crop.max_x", 1.0));
-  self_crop_box_parameters.max_y = static_cast<float>(declare_parameter("self_crop.max_y", 1.0));
-  self_crop_box_parameters.max_z = static_cast<float>(declare_parameter("self_crop.max_z", 1.0));
+  self_crop_box_parameters.min_x = declare_parameter<float>("self_crop.min_x");
+  self_crop_box_parameters.min_y = declare_parameter<float>("self_crop.min_y");
+  self_crop_box_parameters.min_z = declare_parameter<float>("self_crop.min_z");
+  self_crop_box_parameters.max_x = declare_parameter<float>("self_crop.max_x");
+  self_crop_box_parameters.max_y = declare_parameter<float>("self_crop.max_y");
+  self_crop_box_parameters.max_z = declare_parameter<float>("self_crop.max_z");
 
   mirror_crop_box_parameters.min_x =
-    static_cast<float>(declare_parameter("mirror_crop.min_x", -1.0));
+    declare_parameter<float>("mirror_crop.min_x");
   mirror_crop_box_parameters.min_y =
-    static_cast<float>(declare_parameter("mirror_crop.min_y", -1.0));
+    declare_parameter<float>("mirror_crop.min_y");
   mirror_crop_box_parameters.min_z =
-    static_cast<float>(declare_parameter("mirror_crop.min_z", -1.0));
+    declare_parameter<float>("mirror_crop.min_z");
   mirror_crop_box_parameters.max_x =
-    static_cast<float>(declare_parameter("mirror_crop.max_x", 1.0));
+    declare_parameter<float>("mirror_crop.max_x");
   mirror_crop_box_parameters.max_y =
-    static_cast<float>(declare_parameter("mirror_crop.max_y", 1.0));
+    declare_parameter<float>("mirror_crop.max_y");
   mirror_crop_box_parameters.max_z =
-    static_cast<float>(declare_parameter("mirror_crop.max_z", 1.0));
+    declare_parameter<float>("mirror_crop.max_z");
 
-  bool use_3d_undistortion = static_cast<bool>(declare_parameter("use_3d_undistortion", false));
+  bool use_3d_undistortion = declare_parameter<bool>("use_3d_distortion_correction");
+  bool use_imu = declare_parameter<bool>("use_imu");
 
   // Subscriber
   sub_ =
@@ -87,10 +97,12 @@ CudaPointcloudPreprocessorNode::CudaPointcloudPreprocessorNode(
     "~/input/twist", 10,
     std::bind(&CudaPointcloudPreprocessorNode::twistCallback, this, std::placeholders::_1));
 
-  imu_sub_ = this->create_subscription<sensor_msgs::msg::Imu>(
-    "~/input/imu", 10,
-    std::bind(&CudaPointcloudPreprocessorNode::imuCallback, this, std::placeholders::_1));
-
+  if (use_imu) {
+    imu_sub_ = this->create_subscription<sensor_msgs::msg::Imu>(
+        "~/input/imu", 10,
+        std::bind(&CudaPointcloudPreprocessorNode::imuCallback, this, std::placeholders::_1));
+  }
+  
   cuda_pointcloud_preprocessor_ = std::make_unique<CudaPointcloudPreprocessor>();
   cuda_pointcloud_preprocessor_->setRingOutlierFilterParameters(ring_outlier_filter_parameters);
   cuda_pointcloud_preprocessor_->setCropBoxParameters(
@@ -195,15 +207,15 @@ void CudaPointcloudPreprocessorNode::pointcloudCallback(
   const std::shared_ptr<const cuda_blackboard::CudaPointCloud2> input_pointcloud_msg_ptr)
 {
   static_assert(
-    sizeof(InputPointType) == sizeof(nebula::drivers::NebulaPoint),
-    "PointStruct and PointXYZIRADT must have the same size");
+    sizeof(InputPointType) == sizeof(autoware::point_types::PointXYZIRCAEDT),
+    "PointStruct and PointXYZIRCAEDT must have the same size");
 
   stop_watch_ptr_->toc("processing_time", true);
 
   // Make sure that the first twist is newer than the first point
   InputPointType first_point;
   cudaMemcpy(
-    &first_point, input_pointcloud_msg_ptr->data, sizeof(InputPointType), cudaMemcpyDeviceToHost);
+    &first_point, input_pointcloud_msg_ptr->data.get(), sizeof(InputPointType), cudaMemcpyDeviceToHost);
   double first_point_stamp = input_pointcloud_msg_ptr->header.stamp.sec +
                              input_pointcloud_msg_ptr->header.stamp.nanosec * 1e-9 +
                              first_point.time_stamp * 1e-9;
@@ -234,9 +246,11 @@ void CudaPointcloudPreprocessorNode::pointcloudCallback(
     return;
   }
 
-  // RCLCPP_INFO(get_logger(), "Processing pointcloud %s with %d points",
-  // input_pointcloud_msg_ptr->header.frame_id.c_str(),
-  // input_pointcloud_msg_ptr->height*input_pointcloud_msg_ptr->width);
+  /* RCLCPP_INFO(get_logger(), "Processing pointcloud %s with %d points. twist_queue: %ld, angular_velocity_queue: %ld",
+    input_pointcloud_msg_ptr->header.frame_id.c_str(),
+    input_pointcloud_msg_ptr->height*input_pointcloud_msg_ptr->width,
+    twist_queue_.size(), angular_velocity_queue_.size()); */
+
   auto output_pointcloud_ptr = cuda_pointcloud_preprocessor_->process(
     *input_pointcloud_msg_ptr, transform_msg, twist_queue_, angular_velocity_queue_);
   output_pointcloud_ptr->header.frame_id = base_frame_;
@@ -260,7 +274,7 @@ void CudaPointcloudPreprocessorNode::pointcloudCallback(
   cuda_pointcloud_preprocessor_->preallocateOutput();
 }
 
-}  // namespace cuda_pointcloud_preprocessor
+}  // namespace autoware::cuda_pointcloud_preprocessor
 
 #include "rclcpp_components/register_node_macro.hpp"
-RCLCPP_COMPONENTS_REGISTER_NODE(cuda_pointcloud_preprocessor::CudaPointcloudPreprocessorNode)
+RCLCPP_COMPONENTS_REGISTER_NODE(autoware::cuda_pointcloud_preprocessor::CudaPointcloudPreprocessorNode)
